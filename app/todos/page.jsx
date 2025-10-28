@@ -92,6 +92,15 @@ export default function TodosPage() {
     return null;
   }
 
+  // Get today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   // Helper: Check if overdue
   const isOverdue = (dueAt, isCompleted) => {
     if (!dueAt || isCompleted) return false;
@@ -105,13 +114,13 @@ export default function TodosPage() {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
-  // ✅ NEW: Get todo status (Completed, Overdue, Due Today, Due Soon, Pending)
+  // Get todo status (Completed, Overdue, Due Today, Due Soon, Pending)
   const getTodoStatus = (todo) => {
     if (todo.isCompleted) return "completed";
     if (!todo.dueAt) return "pending";
 
     const now = new Date();
-    now.setHours(0, 0, 0, 0); // Reset to start of day for accurate comparison
+    now.setHours(0, 0, 0, 0);
     const dueDate = new Date(todo.dueAt);
     dueDate.setHours(0, 0, 0, 0);
 
@@ -123,7 +132,7 @@ export default function TodosPage() {
     return "pending";
   };
 
-  // ✅ NEW: Get status badge styling
+  // Get status badge styling
   const getStatusBadge = (status) => {
     const badges = {
       completed: {
@@ -195,12 +204,26 @@ export default function TodosPage() {
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             />
-            <input
-              type="date"
-              className="rounded-lg border border-zinc-300 px-4 py-3 transition focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
+
+            <div className="flex gap-2">
+              <input
+                type="date"
+                min={getTodayDate()}
+                className="flex-1 rounded-lg border border-zinc-300 px-4 py-3 transition focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 sm:w-auto"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+
+              <button
+                type="button"
+                onClick={() => setDueDate(getTodayDate())}
+                className="rounded-lg border border-zinc-300 px-4 py-3 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:text-zinc-100"
+                title="Set due date to today"
+              >
+                Today
+              </button>
+            </div>
+
             <button
               onClick={handleAdd}
               disabled={!text.trim() || createMut.isPending}
@@ -225,149 +248,178 @@ export default function TodosPage() {
             </div>
           ) : (
             <ul className="space-y-3">
-              {todos.map((t, index) => (
-                <li
-                  key={t._id}
-                  className={`group flex flex-col gap-3 rounded-xl border p-4 shadow-sm transition hover:shadow-md sm:flex-row sm:items-center sm:gap-4 ${
-                    isOverdue(t.dueAt, t.isCompleted)
-                      ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/20"
-                      : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
-                  }`}
-                >
-                  {/* List Number */}
-                  <span className="inline-block w-7 flex-shrink-0 text-center font-bold text-violet-600 select-none">
-                    {index + 1}
-                  </span>
+              {todos
+                .slice() // ✅ NEW: Create copy to avoid mutating original
+                .sort((a, b) => {
+                  // ✅ NEW: Sort by priority
+                  const statusOrder = {
+                    overdue: 1,
+                    "due-today": 2,
+                    "due-soon": 3,
+                    pending: 4,
+                    completed: 5,
+                  };
 
-                  {/* Complete/Incomplete Checkbox */}
-                  <label className="relative flex cursor-pointer items-center">
-                    <input
-                      type="checkbox"
-                      checked={t.isCompleted}
-                      onChange={() =>
-                        updateMut.mutate({
-                          id: t._id,
-                          patch: { isCompleted: !t.isCompleted },
-                        })
-                      }
-                      disabled={updateMut.isPending}
-                      className="peer h-5 w-5 flex-shrink-0 cursor-pointer appearance-none rounded border-2 border-zinc-300 bg-white transition-all checked:border-violet-600 checked:bg-violet-600 hover:border-violet-500 focus:ring-2 focus:ring-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:checked:border-violet-500 dark:checked:bg-violet-500"
-                    />
-                    <svg
-                      className="pointer-events-none absolute left-0 top-0 h-5 w-5 stroke-white opacity-0 transition-opacity peer-checked:opacity-100"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  </label>
+                  const statusA = getTodoStatus(a);
+                  const statusB = getTodoStatus(b);
 
-                  {/* Todo Text or Edit Input */}
-                  {editingId === t._id ? (
-                    <input
-                      className="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5 transition focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && editText.trim()) {
+                  // First sort by status priority
+                  const priorityDiff =
+                    statusOrder[statusA] - statusOrder[statusB];
+                  if (priorityDiff !== 0) return priorityDiff;
+
+                  // If same status, sort by due date (earliest first)
+                  if (a.dueAt && b.dueAt) {
+                    return new Date(a.dueAt) - new Date(b.dueAt);
+                  }
+                  if (a.dueAt) return -1;
+                  if (b.dueAt) return 1;
+
+                  // Finally, sort by creation date (newest first)
+                  return (
+                    new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+                  );
+                })
+                .map((t, index) => (
+                  <li
+                    key={t._id}
+                    className={`group flex flex-col gap-3 rounded-xl border p-4 shadow-sm transition hover:shadow-md sm:flex-row sm:items-center sm:gap-4 ${
+                      isOverdue(t.dueAt, t.isCompleted)
+                        ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/20"
+                        : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+                    }`}
+                  >
+                    {/* List Number */}
+                    <span className="inline-block w-7 flex-shrink-0 text-center font-bold text-violet-600 select-none">
+                      {index + 1}
+                    </span>
+
+                    {/* Complete/Incomplete Checkbox */}
+                    <label className="relative flex cursor-pointer items-center">
+                      <input
+                        type="checkbox"
+                        checked={t.isCompleted}
+                        onChange={() =>
                           updateMut.mutate({
                             id: t._id,
-                            patch: { title: editText },
-                          });
-                          setEditingId(null);
+                            patch: { isCompleted: !t.isCompleted },
+                          })
                         }
-                        if (e.key === "Escape") {
-                          setEditingId(null);
-                        }
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <div className="flex-1">
-                      {/* Todo Title + Status Badge */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          className={`break-words ${
-                            t.isCompleted
-                              ? "text-zinc-400 line-through dark:text-zinc-500"
-                              : "text-zinc-900 dark:text-zinc-100"
-                          }`}
-                        >
-                          {t.title}
-                        </span>
+                        disabled={updateMut.isPending}
+                        className="peer h-5 w-5 flex-shrink-0 cursor-pointer appearance-none rounded border-2 border-zinc-300 bg-white transition-all checked:border-violet-600 checked:bg-violet-600 hover:border-violet-500 focus:ring-2 focus:ring-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:checked:border-violet-500 dark:checked:bg-violet-500"
+                      />
+                      <svg
+                        className="pointer-events-none absolute left-0 top-0 h-5 w-5 stroke-white opacity-0 transition-opacity peer-checked:opacity-100"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </label>
 
-                        {/* ✅ NEW: Status Badge */}
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
-                            getStatusBadge(getTodoStatus(t)).color
-                          }`}
-                        >
-                          {getStatusBadge(getTodoStatus(t)).text}
-                        </span>
-                      </div>
-
-                      {/* Due Date */}
-                      {t.dueAt && (
-                        <div className="mt-2">
-                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                            📅 {formatDate(t.dueAt)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  {editingId === t._id ? (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          if (editText.trim()) {
+                    {/* Todo Text or Edit Input */}
+                    {editingId === t._id ? (
+                      <input
+                        className="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5 transition focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && editText.trim()) {
                             updateMut.mutate({
                               id: t._id,
                               patch: { title: editText },
                             });
                             setEditingId(null);
                           }
+                          if (e.key === "Escape") {
+                            setEditingId(null);
+                          }
                         }}
-                        disabled={!editText.trim()}
-                        className="flex-1 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:opacity-50 sm:flex-none"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:text-zinc-100 sm:flex-none"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
-                      <button
-                        onClick={() => {
-                          setEditingId(t._id);
-                          setEditText(t.title);
-                        }}
-                        className="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium text-blue-600 transition hover:bg-blue-50 dark:hover:bg-blue-950 sm:flex-none"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteMut.mutate(t._id)}
-                        disabled={deleteMut.isPending}
-                        className="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950 sm:flex-none"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  )}
-                </li>
-              ))}
+                        autoFocus
+                      />
+                    ) : (
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`break-words ${
+                              t.isCompleted
+                                ? "text-zinc-400 line-through dark:text-zinc-500"
+                                : "text-zinc-900 dark:text-zinc-100"
+                            }`}
+                          >
+                            {t.title}
+                          </span>
+
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+                              getStatusBadge(getTodoStatus(t)).color
+                            }`}
+                          >
+                            {getStatusBadge(getTodoStatus(t)).text}
+                          </span>
+                        </div>
+
+                        {t.dueAt && (
+                          <div className="mt-2">
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                              📅 {formatDate(t.dueAt)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    {editingId === t._id ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            if (editText.trim()) {
+                              updateMut.mutate({
+                                id: t._id,
+                                patch: { title: editText },
+                              });
+                              setEditingId(null);
+                            }
+                          }}
+                          disabled={!editText.trim()}
+                          className="flex-1 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:opacity-50 sm:flex-none"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:text-zinc-100 sm:flex-none"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
+                        <button
+                          onClick={() => {
+                            setEditingId(t._id);
+                            setEditText(t.title);
+                          }}
+                          className="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium text-blue-600 transition hover:bg-blue-50 dark:hover:bg-blue-950 sm:flex-none"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => deleteMut.mutate(t._id)}
+                          disabled={deleteMut.isPending}
+                          className="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950 sm:flex-none"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </li>
+                ))}
             </ul>
           )}
         </div>
