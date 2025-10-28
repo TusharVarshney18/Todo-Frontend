@@ -10,7 +10,7 @@ export default function TodosPage() {
   const router = useRouter();
   const client = useQueryClient();
   const [text, setText] = useState("");
-  const [dueDate, setDueDate] = useState(""); // ← NEW
+  const [dueDate, setDueDate] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState("");
 
@@ -31,7 +31,7 @@ export default function TodosPage() {
     onSuccess: () => {
       client.invalidateQueries(["todos"]);
       setText("");
-      setDueDate(""); // ← NEW: Clear due date
+      setDueDate("");
       toast.success("Todo added!");
     },
     onError: (e) => toast.error(e.message),
@@ -69,7 +69,7 @@ export default function TodosPage() {
     if (text.trim()) {
       createMut.mutate({
         title: text,
-        dueAt: dueDate ? new Date(dueDate).toISOString() : null, // ← NEW
+        dueAt: dueDate ? new Date(dueDate).toISOString() : null,
       });
     }
   };
@@ -92,13 +92,11 @@ export default function TodosPage() {
     return null;
   }
 
-  // ← NEW: Helper function to check if todo is overdue
   const isOverdue = (dueAt, isCompleted) => {
     if (!dueAt || isCompleted) return false;
     return new Date(dueAt) < new Date();
   };
 
-  // ← NEW: Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
@@ -136,7 +134,7 @@ export default function TodosPage() {
           </div>
         </header>
 
-        {/* Add Todo Input - Updated with Due Date */}
+        {/* Add Todo Input */}
         <div className="mt-6 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:mt-8 sm:p-6 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex flex-col gap-3 sm:flex-row">
             <input
@@ -186,9 +184,36 @@ export default function TodosPage() {
                   }`}
                 >
                   {/* List Number */}
-                  <span className="inline-block w-7 text-center font-bold text-violet-600 select-none">
+                  <span className="inline-block w-7 flex-shrink-0 text-center font-bold text-violet-600 select-none">
                     {index + 1}
                   </span>
+
+                  {/* ✅ NEW: Complete/Incomplete Checkbox */}
+                  <label className="relative flex cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      checked={t.isCompleted}
+                      onChange={() =>
+                        updateMut.mutate({
+                          id: t._id,
+                          patch: { isCompleted: !t.isCompleted },
+                        })
+                      }
+                      disabled={updateMut.isPending}
+                      className="peer h-5 w-5 flex-shrink-0 cursor-pointer appearance-none rounded border-2 border-zinc-300 bg-white transition-all checked:border-violet-600 checked:bg-violet-600 hover:border-violet-500 focus:ring-2 focus:ring-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-800 dark:checked:border-violet-500 dark:checked:bg-violet-500"
+                    />
+                    <svg
+                      className="pointer-events-none absolute left-0 top-0 h-5 w-5 stroke-white opacity-0 transition-opacity peer-checked:opacity-100"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </label>
 
                   {/* Todo Text or Edit Input */}
                   {editingId === t._id ? (
@@ -215,13 +240,14 @@ export default function TodosPage() {
                       <span
                         className={`break-words ${
                           t.isCompleted
-                            ? "text-zinc-400 line-through"
+                            ? "text-zinc-400 line-through dark:text-zinc-500"
                             : "text-zinc-900 dark:text-zinc-100"
                         }`}
                       >
                         {t.title}
                       </span>
-                      {/* ← NEW: Show Due Date */}
+
+                      {/* Due Date Badge */}
                       {t.dueAt && (
                         <div className="mt-2 flex items-center gap-2">
                           <span
