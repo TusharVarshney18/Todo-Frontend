@@ -92,15 +92,66 @@ export default function TodosPage() {
     return null;
   }
 
+  // Helper: Check if overdue
   const isOverdue = (dueAt, isCompleted) => {
     if (!dueAt || isCompleted) return false;
     return new Date(dueAt) < new Date();
   };
 
+  // Helper: Format date
   const formatDate = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  // ✅ NEW: Get todo status (Completed, Overdue, Due Today, Due Soon, Pending)
+  const getTodoStatus = (todo) => {
+    if (todo.isCompleted) return "completed";
+    if (!todo.dueAt) return "pending";
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Reset to start of day for accurate comparison
+    const dueDate = new Date(todo.dueAt);
+    dueDate.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return "overdue";
+    if (diffDays === 0) return "due-today";
+    if (diffDays <= 3) return "due-soon";
+    return "pending";
+  };
+
+  // ✅ NEW: Get status badge styling
+  const getStatusBadge = (status) => {
+    const badges = {
+      completed: {
+        text: "✓ Completed",
+        color:
+          "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+      },
+      overdue: {
+        text: "⚠️ Overdue",
+        color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+      },
+      "due-today": {
+        text: "🔥 Due Today",
+        color:
+          "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+      },
+      "due-soon": {
+        text: "⏰ Due Soon",
+        color:
+          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+      },
+      pending: {
+        text: "📝 Pending",
+        color:
+          "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+      },
+    };
+    return badges[status];
   };
 
   return (
@@ -188,7 +239,7 @@ export default function TodosPage() {
                     {index + 1}
                   </span>
 
-                  {/* ✅ NEW: Complete/Incomplete Checkbox */}
+                  {/* Complete/Incomplete Checkbox */}
                   <label className="relative flex cursor-pointer items-center">
                     <input
                       type="checkbox"
@@ -237,28 +288,33 @@ export default function TodosPage() {
                     />
                   ) : (
                     <div className="flex-1">
-                      <span
-                        className={`break-words ${
-                          t.isCompleted
-                            ? "text-zinc-400 line-through dark:text-zinc-500"
-                            : "text-zinc-900 dark:text-zinc-100"
-                        }`}
-                      >
-                        {t.title}
-                      </span>
+                      {/* Todo Title + Status Badge */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`break-words ${
+                            t.isCompleted
+                              ? "text-zinc-400 line-through dark:text-zinc-500"
+                              : "text-zinc-900 dark:text-zinc-100"
+                          }`}
+                        >
+                          {t.title}
+                        </span>
 
-                      {/* Due Date Badge */}
+                        {/* ✅ NEW: Status Badge */}
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+                            getStatusBadge(getTodoStatus(t)).color
+                          }`}
+                        >
+                          {getStatusBadge(getTodoStatus(t)).text}
+                        </span>
+                      </div>
+
+                      {/* Due Date */}
                       {t.dueAt && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
-                              isOverdue(t.dueAt, t.isCompleted)
-                                ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                            }`}
-                          >
+                        <div className="mt-2">
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
                             📅 {formatDate(t.dueAt)}
-                            {isOverdue(t.dueAt, t.isCompleted) && " (Overdue)"}
                           </span>
                         </div>
                       )}
